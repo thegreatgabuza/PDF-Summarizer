@@ -1,0 +1,161 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto">
+    <!-- Progress Steps -->
+    <div class="flex items-center justify-between mb-8">
+        <div class="flex items-center">
+            <div class="rounded-full h-8 w-8 flex items-center justify-center bg-primary text-white">1</div>
+            <div class="ml-2 text-sm font-medium text-primary">Information</div>
+        </div>
+        <div class="h-0.5 w-16 bg-gray-200"></div>
+        <div class="flex items-center">
+            <div class="rounded-full h-8 w-8 flex items-center justify-center bg-gray-200">2</div>
+            <div class="ml-2 text-sm font-medium text-gray-500">Upload</div>
+        </div>
+        <div class="h-0.5 w-16 bg-gray-200"></div>
+        <div class="flex items-center">
+            <div class="rounded-full h-8 w-8 flex items-center justify-center bg-gray-200">3</div>
+            <div class="ml-2 text-sm font-medium text-gray-500">Summary</div>
+        </div>
+    </div>
+
+    <!-- Upload Area -->
+    <div class="mt-8">
+        <form id="upload-form" class="space-y-6">
+            <div class="w-full flex justify-center px-6 pt-5 pb-6 border-2 border-dashed border-gray-300 rounded-lg"
+                id="drop-zone">
+                <div class="space-y-1 text-center">
+                    <svg class="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48">
+                        <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
+                    <div class="flex text-sm text-gray-600">
+                        <label for="file-upload"
+                            class="relative cursor-pointer rounded-md font-medium text-primary hover:text-primary-dark focus-within:outline-none">
+                            <span>Upload a file</span>
+                            <input id="file-upload" name="file" type="file" class="sr-only" accept=".pdf">
+                        </label>
+                        <p class="pl-1">or drag and drop</p>
+                    </div>
+                    <p class="text-xs text-gray-500">PDF up to 50MB</p>
+                </div>
+            </div>
+
+            <!-- Progress Bar (Hidden by default) -->
+            <div id="progress-container" class="hidden">
+                <div class="w-full bg-gray-200 rounded-full h-2.5">
+                    <div id="progress-bar" class="bg-primary h-2.5 rounded-full" style="width: 0%"></div>
+                </div>
+                <p id="progress-text" class="mt-2 text-sm text-gray-500 text-center">Uploading...</p>
+            </div>
+
+            <!-- Error Message (Hidden by default) -->
+            <div id="error-message" class="hidden rounded-md bg-red-50 p-4">
+                <div class="flex">
+                    <div class="ml-3">
+                        <h3 class="text-sm font-medium text-red-800">Error</h3>
+                        <div class="mt-2 text-sm text-red-700">
+                            <p id="error-text"></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    const dropZone = document.getElementById('drop-zone');
+    const fileInput = document.getElementById('file-upload');
+    const progressContainer = document.getElementById('progress-container');
+    const progressBar = document.getElementById('progress-bar');
+    const progressText = document.getElementById('progress-text');
+    const errorMessage = document.getElementById('error-message');
+    const errorText = document.getElementById('error-text');
+
+    // Prevent default drag behaviors
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+        dropZone.addEventListener(eventName, preventDefaults, false);
+        document.body.addEventListener(eventName, preventDefaults, false);
+    });
+
+    function preventDefaults(e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+
+    // Highlight drop zone when dragging over it
+    ['dragenter', 'dragover'].forEach(eventName => {
+        dropZone.addEventListener(eventName, highlight, false);
+    });
+
+    ['dragleave', 'drop'].forEach(eventName => {
+        dropZone.addEventListener(eventName, unhighlight, false);
+    });
+
+    function highlight(e) {
+        dropZone.classList.add('border-primary');
+    }
+
+    function unhighlight(e) {
+        dropZone.classList.remove('border-primary');
+    }
+
+    // Handle dropped files
+    dropZone.addEventListener('drop', handleDrop, false);
+
+    function handleDrop(e) {
+        const dt = e.dataTransfer;
+        const files = dt.files;
+        handleFiles(files);
+    }
+
+    fileInput.addEventListener('change', function(e) {
+        handleFiles(this.files);
+    });
+
+    function handleFiles(files) {
+        const file = files[0];
+        if (file.type !== 'application/pdf') {
+            showError('Please upload a PDF file.');
+            return;
+        }
+        if (file.size > 50 * 1024 * 1024) {
+            showError('File size must be less than 50MB.');
+            return;
+        }
+        uploadFile(file);
+    }
+
+    function uploadFile(file) {
+        const formData = new FormData();
+        formData.append('file', file);
+
+        progressContainer.classList.remove('hidden');
+        errorMessage.classList.add('hidden');
+
+        fetch('/upload', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                showError(data.error);
+            } else {
+                window.location.href = `/summary/${data.file_id}`;
+            }
+        })
+        .catch(error => {
+            showError('An error occurred during upload.');
+        });
+    }
+
+    function showError(message) {
+        errorText.textContent = message;
+        errorMessage.classList.remove('hidden');
+        progressContainer.classList.add('hidden');
+    }
+</script>
+{% endblock %} 

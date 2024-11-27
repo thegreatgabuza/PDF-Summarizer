@@ -1,0 +1,2 @@
+mkdir -p app/static/{css,js} app/templates app/utils
+touch app/__init__.py app/routes.py app/config.py app/utils/{pdf_processor.py,summarizer.py} app/templates/{base.html,upload.html,summary.html} requirements.txt .flaskenv README.md 
